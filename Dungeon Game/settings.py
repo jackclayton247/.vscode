@@ -1,13 +1,4 @@
-#-------------------------------------------------------------------------------
-# Name:        module1
-# Purpose:
-#
-# Author:      TWY-6451
-#
-# Created:     25/05/2023
-# Copyright:   (c) TWY-6451 2023
-# Licence:     <your licence>
-#-------------------------------------------------------------------------------
+#settings
 
 #colour bank
 WHITE = (255, 255, 255)
@@ -25,9 +16,11 @@ FPS = 120
 TITLE = "Dungeon Crawler"
 BGCOLOR = DARKGREY
 
-TILESIZE = 32
+TILESIZE = 64
 GRIDWIDTH = WIDTH / TILESIZE
 GRIDHEIGHT = HEIGHT / TILESIZE
 
 #player setting
 PLAYER_SPEED = 500
+PLAYER_IMG = "test2.png"
+GUN_IMG = "gun.png"
