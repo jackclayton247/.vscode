@@ -5,7 +5,7 @@ import sys
 from os import path
 from settings import *
 from sprites import *
-from tilemap import * 
+from tilemap import *
 
 class Game:
     def __init__(self): #creates screen
@@ -16,12 +16,13 @@ class Game:
         pg.key.set_repeat(500, 100)
         self.load_data()
 
-    def load_data(self):
+    def load_data(self): #loads player graphics
+        #pg.transform.rotozoom(pg.image.load("test2.png").convert_alpha(), 0, PLAYER_SIZE)
         game_folder = path.dirname(__file__)
         img_folder = path.join(game_folder, 'img')
         self.map = Map(path.join(game_folder, 'map.txt'))
         self.player_img = pg.image.load(path.join(img_folder, PLAYER_IMG)).convert_alpha()
-        self.gun_img = pg.image.load(path.join(img_folder, GUN_IMG)).convert_alpha()
+        self.gun_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, GUN_IMG)).convert_alpha(), 0, 1.5)
 
     def new(self):
         # initialize all variables and do all the setup for a new game
@@ -32,10 +33,10 @@ class Game:
                 if tile == '1':
                     Wall(self, col, row)
                 if tile == '2':
-                    self.player = Player(self, col, row)
-                    self.gun = Gun(self, col, row)
+                    self.player = Player(self, col, row) #spawns player
+                    self.gun = Gun(self, col, row) #spawns weapon
         self.camera = Camera(self.map.width, self.map.height)
-        
+
     def run(self):
         # game loop - set self.playing = False to end the game
         self.playing = True
@@ -65,7 +66,7 @@ class Game:
         self.draw_grid()
         for sprite in self.all_sprites:
             self.screen.blit(sprite.image, self.camera.apply(sprite))
-        
+
         pg.display.flip()
 
     def events(self):
@@ -91,9 +92,10 @@ while True:
     g.new()
     g.run()
     g.show_go_screen()
-
-    
+    pygame.draw.rect(screen, "red", gun.hitbox_rect, width=2)
+    pygame.draw.rect(screen, "yellow", gun.rect, width=2)
     def run(self):
+
         # game loop - set self.playing = False to end the game
         self.playing = True
         while self.playing:
@@ -137,11 +139,3 @@ while True:
 
     def show_go_screen(self):
         pass
-
-# create the game object
-g = Game()
-g.show_start_screen()
-while True:
-    g.new()
-    g.run()
-    g.show_go_screen()
