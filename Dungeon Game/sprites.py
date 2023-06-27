@@ -5,6 +5,7 @@ from settings import *
 import math
 from os import path
 vec = pg.math.Vector2
+from random import uniform
 
 class Player(pg.sprite.Sprite):
     def __init__(self, game, x, y):    #sprite image
@@ -64,7 +65,7 @@ class Player(pg.sprite.Sprite):
 
 class Gun(pg.sprite.Sprite): #weapon image
     def __init__(self, game, x, y):
-        self.pos = vec(x+1, y+1.2) * TILESIZE
+        self.pos = vec(x+0.7, y+1.2) * TILESIZE
         self.groups = game.all_sprites,
         pg.sprite.Sprite.__init__(self, self.groups)
         self.game = game
@@ -73,15 +74,19 @@ class Gun(pg.sprite.Sprite): #weapon image
         self.hitbox_rect = self.base_gun_image.get_rect(center = self.pos)
         self.rect = self.hitbox_rect.copy()
         self.coord = vec(0,0)
-        print(self.pos)
+        self.offset = vec(80, 0)
+        self.last_shot = 0
+        self.rot = 0
+        
 
     def gun_rotation(self): #roates the gun sprite to point the cursor
-        self.mouse_coords = pg.mouse.get_pos()
+        self.mouse_coords = self.pos - [549.5, 441.5] + pg.mouse.get_pos()
         self.x_change_mouse_gun = (self.mouse_coords[0] - self.hitbox_rect.centerx)
         self.y_change_mouse_gun = (self.mouse_coords[1] - self.hitbox_rect.centery)
         self.angle = math.degrees(math.atan2(self.y_change_mouse_gun, self.x_change_mouse_gun))
         self.image = pg.transform.rotate(self.base_gun_image, -self.angle)
-        self.rect = self.image.get_rect(center = self.hitbox_rect.center)
+        offset_rotated = self.offset.rotate(self.angle)
+        self.rect = self.image.get_rect(center = self.pos+offset_rotated)
 
     def get_keys(self):
         self.coord = vec(0, 0)   #catches movement events
@@ -104,14 +109,47 @@ class Gun(pg.sprite.Sprite): #weapon image
             self.rect.center = self.hitbox_rect.center
         if self.coord.x != 0 and self.coord.y != 0:
             self.coord *= 0.7071
-
+        if keys[pg.K_SPACE]:
+            now = pg.time.get_ticks()
+            if now - self.last_shot > BULLET_RATE:
+                self.last_shot = now
+                dir = vec(1, 0).rotate(-self.rot)
+                pos = self.pos + BARREL_OFFSET.rotate(-self.rot)
+                Bullet(self.game, pos, dir)
+                self.vel = vec(-KICKBACK, 0).rotate(-self.rot)
+            
     def update(self):  #calls all the functions
-        #self.get_keys()
+        self.get_keys()
         self.gun_rotation()
-        #self.pos += self.coord * self.game.dt
-        #self.rect.x =self.pos.x
-        #self.rect.y =self.pos.y
+        self.pos += self.coord * self.game.dt
 
+class Bullet(pg.sprite.Sprite):
+    def __init__(self, game, pos, dir):
+        self.groups = game.all_sprites, game.bullets
+        pg.sprite.Sprite.__init__(self, self.groups)
+        self.game = game
+        self.image = game.bullet_img
+        self.rect = self.image.get_rect()
+        self.pos = vec(pos)
+        self.rect.center = pos
+        #spread = uniform(-GUN_SPREAD, GUN_SPREAD)
+        self.vel = [self.game.gun.x_change_mouse_gun / 100, self.game.gun.y_change_mouse_gun / 100]
+        self.spawn_time = pg.time.get_ticks()
+        self.base_bullet_image = self.image
+    
+    def angle_bullet(self):
+        self.image = pg.transform.rotate(self.base_bullet_image, -self.game.gun.angle)
+        self.rect = self.image.get_rect(center = self.pos)
+
+    def update(self):
+        self.pos += (self.vel)
+        self.angle_bullet()
+        self.rect.center = self.pos
+        if pg.sprite.spritecollideany(self, self.game.walls):
+            self.kill()
+        if pg.time.get_ticks() - self.spawn_time > BULLET_LIFETIME:
+            self.kill()
+            print(self.game.gun.angle)
 
 class Wall(pg.sprite.Sprite):
     def __init__(self, game, x, y):   #sprite image
