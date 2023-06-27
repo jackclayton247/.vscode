@@ -1,4 +1,7 @@
 #settings
+import pygame as pg
+import math
+vec = pg.math.Vector2
 
 #colour bank
 WHITE = (255, 255, 255)
@@ -24,3 +27,11 @@ GRIDHEIGHT = HEIGHT / TILESIZE
 PLAYER_SPEED = 500
 PLAYER_IMG = "test2.png"
 GUN_IMG = "gun.png"
+BULLET_IMG = "bullet.png"
+BARREL_OFFSET = vec(30, 10)
+
+BULLET_SPEED = 500
+BULLET_LIFETIME = 1000
+BULLET_RATE = 150
+KICKBACK = 200
+GUN_SPREAD = 5
