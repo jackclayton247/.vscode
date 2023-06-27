@@ -17,17 +17,18 @@ class Game:
         self.load_data()
 
     def load_data(self): #loads player graphics
-        #pg.transform.rotozoom(pg.image.load("test2.png").convert_alpha(), 0, PLAYER_SIZE)
         game_folder = path.dirname(__file__)
         img_folder = path.join(game_folder, 'img')
         self.map = Map(path.join(game_folder, 'map.txt'))
         self.player_img = pg.image.load(path.join(img_folder, PLAYER_IMG)).convert_alpha()
         self.gun_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, GUN_IMG)).convert_alpha(), 0, 1.5)
+        self.bullet_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, BULLET_IMG)).convert_alpha(), 0 , 7)
 
     def new(self):
         # initialize all variables and do all the setup for a new game
         self.all_sprites = pg.sprite.Group()
         self.walls = pg.sprite.Group()
+        self.bullets = pg.sprite.Group()
         for row, tiles in enumerate(self.map.data):
             for col, tile in enumerate(tiles):
                 if tile == '1':
@@ -35,6 +36,7 @@ class Game:
                 if tile == '2':
                     self.player = Player(self, col, row) #spawns player
                     self.gun = Gun(self, col, row) #spawns weapon
+                    #self.bullet = Bullet(self, col, row) #spawns bullet
         self.camera = Camera(self.map.width, self.map.height)
 
     def run(self):
@@ -92,8 +94,6 @@ while True:
     g.new()
     g.run()
     g.show_go_screen()
-    pygame.draw.rect(screen, "red", gun.hitbox_rect, width=2)
-    pygame.draw.rect(screen, "yellow", gun.rect, width=2)
     def run(self):
 
         # game loop - set self.playing = False to end the game
