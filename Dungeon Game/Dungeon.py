@@ -22,9 +22,9 @@ class Game:
         self.map = Map(path.join(game_folder, 'map.txt'))
         self.player_img = pg.image.load(path.join(img_folder, PLAYER_IMG)).convert_alpha()
         self.gun_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, GUN_IMG)).convert_alpha(), 0, 1.5)
-        self.bullet_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, BULLET_IMG)).convert_alpha(), 0 , 7)
+        self.bullet_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, BULLET_IMG)).convert_alpha(), 0 , 0.7)
 
-    def new(self):
+    def new(self):     
         # initialize all variables and do all the setup for a new game
         self.all_sprites = pg.sprite.Group()
         self.walls = pg.sprite.Group()
@@ -36,7 +36,6 @@ class Game:
                 if tile == '2':
                     self.player = Player(self, col, row) #spawns player
                     self.gun = Gun(self, col, row) #spawns weapon
-                    #self.bullet = Bullet(self, col, row) #spawns bullet
         self.camera = Camera(self.map.width, self.map.height)
 
     def run(self):
