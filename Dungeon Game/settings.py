@@ -26,16 +26,17 @@ GRIDHEIGHT = HEIGHT / TILESIZE
 #player setting
 PLAYER_SPEED = 500
 PLAYER_IMG = "test2.png"
-PLAYER_HIT_RECT = pg.Rect(0, 0, 35, 35)
+PLAYER_HIT_RECT = pg.Rect(0, 0, 70, 110)
 #gun settings
 GUN_IMG = "gun.png"
+GUN_HIT_RECT = pg.Rect(0, 0, 35, 35)
 #bullet settings
 BULLET_IMG = "bullet.png"
 BARREL_OFFSET = vec(30, 10)
 BULLET_SPEED = 20
 BULLET_LIFETIME = 100000
-BULLET_RATE = 0.1
-KICKBACK = 200
+BULLET_RATE = 200
+KICKBACK = 0
 GUN_SPREAD = 5
 #mob settings
 MOB_IMG = "mob.png"
