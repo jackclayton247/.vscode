@@ -2,34 +2,31 @@
 
 import pygame as pg
 from settings import *
+from tilemap import *
 import math
 from os import path
 vec = pg.math.Vector2
 from random import uniform
 
-def collide_with_walls(self, group, dir):
-        if dir == "x":
-            hits = pg.sprite.spritecollide(self, self.game.walls, False)
-            if hits:
-                if self.vel.x > 0: #check direction of collision and stops that movement
-                    self.pos.x = hits[0].rect.left - self.rect.width
-                    self.game.gun.pos.x = self.pos.x + 64
-                if self.vel.x < 0:
-                    self.pos.x = hits[0].rect.right
-                    self.game.gun.pos.x = self.pos.x + 64
-            self.vel.x = 0
-            self.rect.x = self.pos.x
-        if dir == "y":
-            hits = pg.sprite.spritecollide(self, self.game.walls, False)
-            if hits:
-                if self.vel.y > 0:  #check direction of collision and stops that movement
-                    self.pos.y = hits[0].rect.top - self.rect.height
-                    self.game.gun.pos.y = self.pos.y + 64
-                if self.vel.y < 0:
-                    self.pos.y = hits[0].rect.bottom
-                    self.game.gun.pos.y = self.pos.y + 64
-            self.vel.y = 0
-            self.rect.y = self.pos.y
+def collide_with_walls(sprite, group, dir):
+    if dir == 'x':
+        hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
+        if hits:
+            if sprite.vel.x > 0:
+                sprite.pos.x = hits[0].rect.left - sprite.hit_rect.width / 2
+            if sprite.vel.x < 0:
+                sprite.pos.x = hits[0].rect.right + sprite.hit_rect.width / 2
+            sprite.vel.x = 0
+            sprite.hit_rect.centerx = sprite.pos.x
+    if dir == 'y':
+        hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
+        if hits:
+            if sprite.vel.y > 0:
+                sprite.pos.y = hits[0].rect.top - sprite.hit_rect.height / 2
+            if sprite.vel.y < 0:
+                sprite.pos.y = hits[0].rect.bottom + sprite.hit_rect.height / 2
+            sprite.vel.y = 0
+            sprite.hit_rect.centery = sprite.pos.y
 
 class Player(pg.sprite.Sprite):
     def __init__(self, game, x, y):    #sprite image
@@ -58,13 +55,14 @@ class Player(pg.sprite.Sprite):
             self.vel *= 0.7071
 
     def update(self): #calls all the functions
-        self.get_keys()
         self.pos += self.vel * self.game.dt
         self.hit_rect.centerx = self.pos.x
         collide_with_walls(self, self.game.walls, 'x')
+        collide_with_walls(self, self.game.gun.game.walls, 'x')
         self.hit_rect.centery = self.pos.y
         collide_with_walls(self, self.game.walls, 'y')
         self.rect.center = self.hit_rect.center
+        self.get_keys()
 
 class Gun(pg.sprite.Sprite): #weapon image
     def __init__(self, game, x, y):
@@ -76,7 +74,8 @@ class Gun(pg.sprite.Sprite): #weapon image
         self.base_gun_image = self.image
         self.hitbox_rect = self.base_gun_image.get_rect(center = self.pos)
         self.rect = self.hitbox_rect.copy()
-        self.coord = vec(0,0)
+        self.hit_rect = GUN_HIT_RECT
+        self.vel = vec(0,0)
         self.offset = vec(80, 0)
         self.last_shot = 0
         self.rot = 0
@@ -89,31 +88,33 @@ class Gun(pg.sprite.Sprite): #weapon image
         self.angle = math.degrees(math.atan2(self.y_change_mouse_gun, self.x_change_mouse_gun))
         self.image = pg.transform.rotate(self.base_gun_image, -self.angle)
         offset_rotated = self.offset.rotate(self.angle)
-        self.rect = self.image.get_rect(center = self.pos+offset_rotated)
+        self.rect = self.image.get_rect(center = self.pos + offset_rotated)
 
     def get_keys(self):
-        self.coord = vec(0, 0)   #catches movement events
+        self.vel = vec(0, 0)   #catches movement events
         keys =pg.key.get_pressed()
         if keys[pg.K_LEFT] or keys[pg.K_a]:
-            self.coord.x = -PLAYER_SPEED
+            self.vel.x = -PLAYER_SPEED
             self.hitbox_rect.center = self.pos
             self.rect.center = self.hitbox_rect.center
         if keys[pg.K_RIGHT] or keys[pg.K_d]:
-            self.coord.x = PLAYER_SPEED
+            self.vel.x = PLAYER_SPEED
             self.hitbox_rect.center = self.pos
             self.rect.center = self.hitbox_rect.center
         if keys[pg.K_UP] or keys[pg.K_w]:
-            self.coord.y = -PLAYER_SPEED
+            self.vel.y = -PLAYER_SPEED
             self.hitbox_rect.center = self.pos
             self.rect.center = self.hitbox_rect.center
         if keys[pg.K_DOWN] or keys[pg.K_s]:
-            self.coord.y = PLAYER_SPEED
+            self.vel.y = PLAYER_SPEED
             self.hitbox_rect.center = self.pos
             self.rect.center = self.hitbox_rect.center
-        if self.coord.x != 0 and self.coord.y != 0:
-            self.coord *= 0.7071
+        if self.vel.x != 0 and self.vel.y != 0:
+            self.vel *= 0.7071
         if keys[pg.K_SPACE]:
             now = pg.time.get_ticks()
+            self.hitbox_rect.center = self.pos
+            self.rect.center = self.hitbox_rect.center
             if now - self.last_shot > BULLET_RATE:
                 self.last_shot = now
                 dir = vec(1, 0).rotate(-self.rot)
@@ -121,10 +122,13 @@ class Gun(pg.sprite.Sprite): #weapon image
                 Bullet(self.game, pos, dir)
                 self.vel = vec(-KICKBACK, 0).rotate(-self.rot)
 
-    def update(self):  #calls all the functions + jack smells
+
+    def update(self):  #calls all the functions
         self.get_keys()
         self.gun_rotation()
-        self.pos += self.coord * self.game.dt
+        self.pos += self.vel * self.game.dt
+        collide_with_walls(self, self.game.walls, 'x')
+        collide_with_walls(self, self.game.walls, 'y')
 
 class Bullet(pg.sprite.Sprite):
     def __init__(self, game, pos, dir):
@@ -167,8 +171,7 @@ class Mob(pg.sprite.Sprite):
         self.rot = 0
 
     def update(self):
-        self.rot = (self.game.player.pos - self.pos).angle_to(vec(1, 0))
-        self.image = pg.transform.rotate(self.game.mob_img, self.rot)
+        self.image = self.game.mob_img
         self.rect = self.image.get_rect()
         self.rect.center = self.pos
         self.acc = vec(MOB_SPEED, 0).rotate(-self.rot)
@@ -193,4 +196,3 @@ class Wall(pg.sprite.Sprite):
         self.y = y
         self.rect.x = x * TILESIZE
         self.rect.y = y * TILESIZE
-
