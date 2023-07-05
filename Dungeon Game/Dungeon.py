@@ -6,6 +6,25 @@ from os import path
 from settings import *
 from sprites import *
 from tilemap import *
+import pytmx
+
+# HUD functions
+def draw_player_health(surf, x, y, pct):
+    if pct < 0:
+        pct = 0
+    BAR_LENGTH = 100
+    BAR_HEIGHT = 20
+    fill = pct * BAR_LENGTH
+    outline_rect = pg.Rect(x, y, BAR_LENGTH, BAR_HEIGHT)
+    fill_rect = pg.Rect(x, y, fill, BAR_HEIGHT)
+    if pct > 0.6:
+        col = GREEN
+    elif pct > 0.3:
+        col = YELLOW
+    else:
+        col = RED
+    pg.draw.rect(surf, col, fill_rect)
+    pg.draw.rect(surf, WHITE, outline_rect, 2)
 
 class Game:
     def __init__(self): #creates screen
@@ -19,11 +38,16 @@ class Game:
     def load_data(self): #loads player graphics
         game_folder = path.dirname(__file__)
         img_folder = path.join(game_folder, 'img')
-        self.map = Map(path.join(game_folder, 'map.txt'))
+        map_folder = path.join(game_folder, 'maps')
+        self.map = TiledMap(path.join(map_folder, 'map1.tmx'))
+        self.map_img = self.map.make_map()
+        self.map_rect = self.map_img.get_rect()
         self.player_img = pg.image.load(path.join(img_folder, PLAYER_IMG)).convert_alpha()
-        self.gun_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, GUN_IMG)).convert_alpha(), 0, 1.5)
+        self.gun_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, GUN_IMG)).convert_alpha(), 0, 1.2)
         self.bullet_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, BULLET_IMG)).convert_alpha(), 0 , 0.7)
         self.mob_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, MOB_IMG)).convert_alpha(), 0 , 5)
+        self.heart_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, HEART_IMG)).convert_alpha(), 0 , 1.3)
+        self.half_heart_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, HALF_HEART_IMG)).convert_alpha(), 0 , 1.3)
 
     def new(self):
         # initialize all variables and do all the setup for a new game
@@ -31,16 +55,16 @@ class Game:
         self.walls = pg.sprite.Group()
         self.bullets = pg.sprite.Group()
         self.mobs = pg.sprite.Group()
-        for row, tiles in enumerate(self.map.data):
-            for col, tile in enumerate(tiles):
-                if tile == '1':
-                    Wall(self, col, row)
-                if tile == "M":
-                    self.mob = Mob(self, col, row) #spawns mob
-                if tile == '2':
-                    self.player = Player(self, col, row) #spawns player
-                    self.gun = Gun(self, col, row) #spawns weapon
+        for tile_object in self.map.tmxdata.objects:
+            if tile_object.name == "player":
+                self.player = Player(self, tile_object.x, tile_object.y, "player")
+                self.gun = Gun(self, tile_object.x, tile_object.y)
+            if tile_object.name == "mob":
+                Mob(self, tile_object.x, tile_object.y)
+            if tile_object.name == "wall":
+                Obstacle(self, tile_object.x, tile_object.y, tile_object.width, tile_object.height)
         self.camera = Camera(self.map.width, self.map.height)
+        self.draw_debug = False
 
     def run(self):
         # game loop - set self.playing = False to end the game
@@ -59,6 +83,20 @@ class Game:
         # update portion of the game loop
         self.all_sprites.update()
         self.camera.update(self.player)
+        # mobs hit player
+        now = pg.time.get_ticks()
+        if now - self.player.last_hit >= I_FRAMES:
+            self.player.last_hit = now
+            hits = pg.sprite.spritecollide(self.player, self.mobs, False, collide_hit_rect)
+            for hit in hits:
+                self.player.lives -= 1
+                if self.player.lives <= 0:
+                    self.quit()      
+         # bullets hit mobs
+        hits = pg.sprite.groupcollide(self.mobs, self.bullets, False, True)
+        for hit in hits:
+            hit.health -= BULLET_DAMAGE
+            hit.vel = vec(0,0)
 
     def draw_grid(self):
         for x in range(0, WIDTH, TILESIZE):
@@ -66,14 +104,41 @@ class Game:
         for y in range(0, HEIGHT, TILESIZE):
             pg.draw.line(self.screen, LIGHTGREY, (0, y), (WIDTH, y))
 
+    def draw_lives(self, surf, x, y, lives):
+            for i in range(lives):
+                if i % 2 == 0:
+                    img = self.half_heart_img
+                    img_rect = img.get_rect()
+                    img_rect.x = x + 25 * i
+                    img_rect.y = y
+                    surf.blit(img, img_rect)
+                else:
+                    img = self.heart_img
+                    img_rect = img.get_rect()
+                    img_rect.x = x + 25 * (i-1)
+                    img_rect.y = y
+                    surf.blit(img, img_rect)
+
     def draw(self):
-        self.screen.fill(BGCOLOR)
-        self.draw_grid()
+        pg.display.set_caption("{:.2f}".format(self.clock.get_fps()))
+        #self.screen.fill(BGCOLOR)
+        self.screen.blit(self.map_img, self.camera.apply_rect(self.map_rect))
+        # self.draw_grid()
         for sprite in self.all_sprites:
+            if isinstance(sprite, Mob):
+                sprite.draw_health()
             self.screen.blit(sprite.image, self.camera.apply(sprite))
+            if self.draw_debug:
+                pg.draw.rect(self.screen, CYAN, self.camera.apply_rect(sprite.hit_rect), 1)
+        if self.draw_debug:
+            for wall in self.walls:
+                pg.draw.rect(self.screen, CYAN, self.camera.apply_rect(wall.rect), 1)
 
+        # pg.draw.rect(self.screen, WHITE, self.player.hit_rect, 2)
+        # HUD functions
+        self.draw_lives(self.screen, 5, 5, self.player.lives)
         pg.display.flip()
-
+    
     def events(self):
         # catch all events here
         for event in pg.event.get():
@@ -82,7 +147,8 @@ class Game:
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_ESCAPE:
                     self.quit()
-
+                if event.key == pg.K_h:
+                    self.draw_debug = not self.draw_debug
 
     def show_start_screen(self):
         pass
@@ -114,28 +180,6 @@ while True:
     def update(self):
         # update portion of the game loop
         self.all_sprites.update()
-
-    def draw_grid(self):
-        for x in range(0, WIDTH, TILESIZE):
-            pg.draw.line(self.screen, LIGHTGREY, (x, 0), (x, HEIGHT))
-        for y in range(0, HEIGHT, TILESIZE):
-            pg.draw.line(self.screen, LIGHTGREY, (0, y), (WIDTH, y))
-
-    def draw(self):
-        self.screen.fill(BGCOLOR)
-        self.draw_grid()
-        self.all_sprites.draw(self.screen)
-        pg.display.flip()
-
-    def events(self):
-        # catch all events here
-        for event in pg.event.get():
-            if event.type == pg.QUIT:
-                self.quit()
-            if event.type == pg.KEYDOWN:
-                if event.key == pg.K_ESCAPE:
-                    self.quit()
-
 
     def show_start_screen(self):
         pass
