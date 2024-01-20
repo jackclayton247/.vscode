@@ -10,6 +10,10 @@ from random import uniform, choice, randint, random
 import pytweening as tween
 from itertools import chain
 
+Mobs = {}
+for x in range(100):
+    Mobs[x] = {"pos": (0, 0),
+                "angle": 0}
 
 def collide_with_walls(sprite, group, dir):
     if dir == 'x':
@@ -40,7 +44,7 @@ class Player(pg.sprite.Sprite):
         self.game = game
         self.image = game.idle_down_frames[0]
         self.rect = self.image.get_rect()
-        print(self.rect[2], self.rect[3])  #hitbox
+        #hitbox
         self.rect.center = (x, y)
         self.hit_rect = PLAYER_HIT_RECT
         self.hit_rect.center = self.rect.center
@@ -69,6 +73,7 @@ class Player(pg.sprite.Sprite):
         self.gun_down = False
         self.running_down = False
         self.idle_down = False
+        self.dash_dir = [0, 0]
 
     def player_state(self):
         #gun direction
@@ -146,22 +151,27 @@ class Player(pg.sprite.Sprite):
             self.idle_right_down = False
             self.idle_up = False
             self.idle_down = False
-        #print("l = {}, r - {}, u = {}, d = {}".format(self.idle_left, self.idle_right, self.idle_up, self.idle_down))
         
+        #print("l = {}, r - {}, u = {}, d = {}".format(self.idle_left, self.idle_right, self.idle_up, self.idle_down))
 
     def get_keys(self):
         self.vel = vec(0, 0)   #catches movement events
-        keys =pg.key.get_pressed()
-        if keys[pg.K_LEFT] or keys[pg.K_a]:
-            self.vel.x = -PLAYER_SPEED
-        if keys[pg.K_RIGHT] or keys[pg.K_d]:
-            self.vel.x = PLAYER_SPEED
-        if keys[pg.K_UP] or keys[pg.K_w]:
-            self.vel.y = -PLAYER_SPEED
-        if keys[pg.K_DOWN] or keys[pg.K_s]:
-            self.vel.y = PLAYER_SPEED
-        if self.vel.x != 0 and self.vel.y != 0:
-            self.vel *= 0.7071
+        if self.game.gun.dashing == False:
+            x = PLAYER_SPEED
+            keys =pg.key.get_pressed()
+            if keys[pg.K_LEFT] or keys[pg.K_a]:
+                self.vel.x = -x
+            if keys[pg.K_RIGHT] or keys[pg.K_d]:
+                self.vel.x = x
+            if keys[pg.K_UP] or keys[pg.K_w]:
+                self.vel.y = -x
+            if keys[pg.K_DOWN] or keys[pg.K_s]:
+                self.vel.y = x
+            if self.vel.x != 0 and self.vel.y != 0:
+                self.vel *= 0.7071
+        else:
+            self.vel += 3 * self.dash_dir
+        
     
     def hit(self):
         self.damaged = True
@@ -303,6 +313,8 @@ class Gun(pg.sprite.Sprite): #weapon image
         self.angle = 0
         self.shots_fired = 0
         self.player_reloading = False
+        self.dashing = False
+        self.last_dash = False
 
     def gun_rotation(self): #roates the gun sprite to point the cursor
         if self.scroll_lim_x == True and self.scroll_lim_y == True:
@@ -370,14 +382,24 @@ class Gun(pg.sprite.Sprite): #weapon image
         if self.vel.x != 0 and self.vel.y != 0:
             self.vel *= 0.7071
         if keys[pg.K_SPACE]:
-            if self.shots_fired < WEAPONS[self.game.player.weapon]["mag_size"]:
-                self.shoot() #shoots
+            if self.game.player.vel != [0, 0] and self.dashing != True and pg.time.get_ticks() - self.last_dash > DASH_INTERVAL:
+                self.dashing = True
+                self.game.player.dash_dir = self.game.player.vel
+                self.time_of_dash_start = pg.time.get_ticks()
         if self.shots_fired >= WEAPONS[self.game.player.weapon]["mag_size"]:
             self.player_reloading = True
             self.reload()
-        print(self.player_reloading)
-        
+        if self.game.auto == True:
+            if self.player_reloading == False:
+                self.shoot()
+                
+            
         #print(self.shots_fired, WEAPONS[self.game.player.weapon]["mag_size"], self.reloading)
+    def dash_timer(self):
+        now = pg.time.get_ticks()
+        if now - self.time_of_dash_start > DASH_LEGTH:
+            self.dashing = False
+            self.last_dash = pg.time.get_ticks()
                 
             
     def shoot(self):
@@ -428,6 +450,8 @@ class Gun(pg.sprite.Sprite): #weapon image
         self.get_keys()
         self.gun_rotation()
         self.map_scrolling_limited()
+        if self.dashing:
+            self.dash_timer()
     
 class Player_Bullet(pg.sprite.Sprite):
     def __init__(self, game, pos, dir, spread):
@@ -437,10 +461,7 @@ class Player_Bullet(pg.sprite.Sprite):
         self.game = game
         self.image = game.bullet_images[WEAPONS[game.player.weapon]["bullet_size"]] #sprite image
         self.rect = self.image.get_rect()
-        if self.game.player.weapon == "pistol":
-            magnitude_bullet = math.sqrt(self.game.gun.x_change_mouse_gun **2 + self.game.gun.y_change_mouse_gun **2)  #for unit vector calc
-        if self.game.player.weapon == "shotgun":
-            magnitude_bullet = math.sqrt(self.game.gun.x_change_mouse_gun **2 + self.game.gun.y_change_mouse_gun **2) #for unit vector calc
+        magnitude_bullet = math.sqrt(self.game.gun.x_change_mouse_gun **2 + self.game.gun.y_change_mouse_gun **2)  #for unit vector calc
         self.pos = [self.game.gun.x_change_mouse_gun / magnitude_bullet * 40, self.game.gun.y_change_mouse_gun / magnitude_bullet * 40] + self.game.gun.pos  #spawn the bullet based on the gun pos and a factor of the unit vector
         self.rect.center = pos #center
         self.vel = vec(1, 0).rotate(self.game.gun.angle + spread)
@@ -448,7 +469,7 @@ class Player_Bullet(pg.sprite.Sprite):
         #self.vel = dir * WEAPONS[game.player.weapon]["bullet_speed"]
         self.spawn_time = pg.time.get_ticks()
         self.base_bullet_image = self.image
-        if self.game.player.weapon == "pistol":
+        if self.game.player.weapon == "pistol" or self.game.player.weapon == "sniper" or self.game.player.weapon == "uzi":
             self.image = pg.transform.rotate(self.base_bullet_image, -self.game.gun.angle)  #rotate based on function in gun class
         if self.game.player.weapon == "shotgun":
             self.image = pg.transform.rotate(self.base_bullet_image, -self.game.gun.angle - spread)
@@ -465,7 +486,7 @@ class Player_Bullet(pg.sprite.Sprite):
             self.kill()
 
 class Mob(pg.sprite.Sprite):
-    def __init__(self, game, x, y):
+    def __init__(self, game, x, y, weapon, mob_num):
         self._layer = WALL_LAYER
         self._layer = MOB_LAYER
         self.groups = game.all_sprites, game.mobs
@@ -476,6 +497,7 @@ class Mob(pg.sprite.Sprite):
         self.rect.center = (x, y) #hitbox
         self.hit_rect = MOB_HIT_RECT.copy() 
         self.hit_rect.center = self.rect.center
+        offset = vec(30, 0)
         self.pos = vec(x, y)  #postion
         self.vel = vec(0, 0)
         self.acc = vec(0, 0)
@@ -484,9 +506,12 @@ class Mob(pg.sprite.Sprite):
         self.health = MOB_HEALTH
         self.speed = choice(MOB_SPEEDS)
         self.target = game.player
-        self.weapon = MOB_WEAPON
+        self.weapon = weapon
         self.last_shot = 0
         self.shots_fired_mob = 0
+        self.mob_num = mob_num
+        print(weapon)
+        #print(mob_num)
 
     def avoid_mobs(self):
         for mob in self.game.mobs:
@@ -499,28 +524,28 @@ class Mob(pg.sprite.Sprite):
         self.change = self.game.player.pos - self.pos
         self.angle = math.degrees(math.atan2(self.change.y, self.change.x))
 
-    def shoot(self):
+    def shoot(self, weapon):
         now = pg.time.get_ticks()
         self.hit_rect.center = self.pos
         self.rect.center = self.hit_rect.center
-        if now - self.last_shot > WEAPONS[self.game.mob.weapon]["rate"]:
-            snd = choice(self.game.weapon_sounds[self.game.mob.weapon])
+        if now - self.last_shot > WEAPONS[weapon]["rate"]:
+            snd = choice(self.game.weapon_sounds[weapon])
             if snd.get_num_channels() > 2:
                 snd.stop()
             #snd.play()
             self.last_shot = now
             dir = vec(1, 0).rotate(-self.rot)
             pos = self.pos
-            for i in range(1,WEAPONS[self.game.mob.weapon]["bullet_count"] + 1, 1):
-                num_bullets = WEAPONS[self.game.mob.weapon]["bullet_count"]
+            for i in range(1,WEAPONS[weapon]["bullet_count"] + 1, 1):
+                num_bullets = WEAPONS[weapon]["bullet_count"]
                 mid_bullet = ((num_bullets+ 1) / 2)
                 if i < mid_bullet:
-                    self.spread = (WEAPONS[self.game.mob.weapon]["spread"]) * i 
+                    self.spread = (WEAPONS[weapon]["spread"]) * i 
                 if i == mid_bullet:
                     self.spread = 0
                 if i > mid_bullet and i < num_bullets + 1:
-                    self.spread = -WEAPONS[self.game.mob.weapon]["spread"] * (i - mid_bullet)
-                self.mob_bullet = Mob_Bullet(self.game, self.pos, dir, self.spread, self.rot)
+                    self.spread = -WEAPONS[weapon]["spread"] * (i - mid_bullet)
+                self.mob_bullet = Mob_Bullet(self.game, self.pos, dir, self.spread, self.rot, weapon)
             self.time_of_last_shot_mob = pg.time.get_ticks()
             self.shots_fired_mob += 1
 
@@ -541,12 +566,16 @@ class Mob(pg.sprite.Sprite):
             self.rect.center = self.hit_rect.center
             if target_dist_squared < SHOOT_RADIUS**2:
                 if self.shots_fired_mob < WEAPONS[self.weapon]["mag_size"]:
-                    self.shoot()
+                    self.shoot(self.weapon)
         if self.shots_fired_mob >= WEAPONS[self.weapon]["mag_size"]:       
-            self.reload()
+            self.reload()#self.weapon
         if self.health <= 0:
             self.kill()
+            self.pos = (-100000, -100000)
+            print(Mobs[self.mob_num])
         self.angle_to_player()
+        Mobs[self.mob_num]["pos"] = self.pos
+        Mobs[self.mob_num]["angle"] = self.angle
         #print(self.shots_fired_mob)
     
     def reload(self):
@@ -569,24 +598,53 @@ class Mob(pg.sprite.Sprite):
         pg.draw.rect(health_surface, BLACK, empty_bar)
         self.image.blit(health_surface, (0, 0))  # Blit the health surface onto the sprite's image
 
+class Mob_Gun(pg.sprite.Sprite):
+    def __init__(self, game, x, y, weapon, num):
+        self._layer = GUN_LAYER
+        self.groups = game.all_sprites, game.mob_guns
+        pg.sprite.Sprite.__init__(self, self.groups)
+        self.game = game
+        self.image = game.gun_images[WEAPONS[weapon]["bullet_size"]]
+        self.base_bullet_image = self.image
+        self.pos = vec(x, y)
+        self.rect = self.image.get_rect()
+        self.num = num
+        self.offset = vec(50, 0)
+        self.hit_rect = self.image.get_rect()
+    
+    def rotate(self):
+        self.image = pg.transform.rotate(self.base_bullet_image, -Mobs[self.num]["angle"])
+        offset_rotated = self.offset.rotate(Mobs[self.num]["angle"])
+        self.rect = self.image.get_rect(center = self.pos + offset_rotated)
+
+    def update(self):
+        #print(Mobs[self.num])
+        if Mobs[self.num] == (-100000, -100000):
+            self.kill()
+        self.pos = Mobs[self.num]["pos"]
+        self.rect.center = self.pos
+        self.rotate()
+        self.hit_rect = self.image.get_rect()
+
+
 class Mob_Bullet(pg.sprite.Sprite):
-    def __init__(self, game, pos, dir, spread, angle):
+    def __init__(self, game, pos, dir, spread, angle, weapon):
         self._layer = EFFECTS_LAYER
         self.groups = game.all_sprites, game.mob_bullets
         pg.sprite.Sprite.__init__(self, self.groups)
         self.game = game
-        self.image = game.bullet_images[WEAPONS[game.mob.weapon]["bullet_size"]] #sprite image
+        self.image = game.bullet_images[WEAPONS[weapon]["bullet_size"]] #sprite image
         self.rect = self.image.get_rect()
-        self.vel = vec(0, 1).rotate(-angle - 90 + spread) * WEAPONS[game.mob.weapon]["bullet_speed"]
+        self.vel = vec(0, 1).rotate(-angle - 90 + spread) * WEAPONS[weapon]["bullet_speed"]
         #self.vel = vec(self.vel.x*WEAPONS[self.game.mob.weapon]["bullet_speed"], self.vel.y*-WEAPONS[self.game.mob.weapon]["bullet_speed"])
-        self.pos = pos + dir * 5   #spawn the bullet based on the gun pos and a factor of the unit vector
+        self.pos = pos + dir * 90  #spawn the bullet based on the gun pos and a factor of the unit vector
         self.rect.center = pos #center
         #self.vel = dir * WEAPONS[game.player.weapon]["bullet_speed"]
         self.spawn_time = pg.time.get_ticks()
         self.base_bullet_image = self.image
-        if self.game.mob.weapon == "pistol":
+        if weapon != "shotgun":
             self.image = pg.transform.rotate(self.base_bullet_image, angle)  #rotate based on function in gun class
-        if self.game.mob.weapon == "shotgun":
+        if weapon == "shotgun":
             self.image = pg.transform.rotate(self.base_bullet_image, angle - spread)
         self.rect = self.image.get_rect(center = self.pos)
         self.hit_rect = self.rect
