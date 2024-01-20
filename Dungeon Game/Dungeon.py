@@ -1,5 +1,4 @@
 #Dungeon Crawler
-
 import pygame as pg
 import sys
 from os import path
@@ -11,7 +10,7 @@ import pytmx
 from random import random
 
 # HUD functions
-def draw_player_health(surf, x, y, pct):
+def draw_player_health(surf, x, y, pct): #draws the players health above them
     if pct < 0:
         pct = 0
     BAR_LENGTH = 100
@@ -19,7 +18,7 @@ def draw_player_health(surf, x, y, pct):
     fill = pct * BAR_LENGTH
     outline_rect = pg.Rect(x, y, BAR_LENGTH, BAR_HEIGHT)
     fill_rect = pg.Rect(x, y, fill, BAR_HEIGHT)
-    if pct > 0.6:
+    if pct > 0.6:    #bar changes colour as health decreases
         col = GREEN
     elif pct > 0.3:
         col = YELLOW
@@ -39,8 +38,10 @@ class Game:
         self.menu()
         self.pickup = False
         self.last_restart = 0
+        self.mob_counter = 0
+        self.auto = False
 
-    def load_data(self): #loads player graphics 
+    def load_data(self): #loads all images 
         game_folder = path.dirname(__file__)
         img_folder = path.join(game_folder, 'img')
         snd_folder = path.join(game_folder, 'snd')
@@ -50,6 +51,7 @@ class Game:
         #reloading img
         self.reloading_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, RELOADING_IMG)).convert_alpha(), 0, 0.8)
         self.idle_player_down_spritesheet = pg.image.load(path.join(img_folder, IDLE_PLAYER_DOWN_SPRITESHEET)).convert_alpha()
+        #idle images
         self.idle_down_frames = {}
         self.idle_down_frames[0] = self.get_image(0, 17, 22, 5, BLACK, self.idle_player_down_spritesheet, False)
         self.idle_down_frames[1] = self.get_image(1, 17, 22, 5, BLACK, self.idle_player_down_spritesheet, False)
@@ -130,15 +132,23 @@ class Game:
         self.down_frames[3] = self.get_image(3, 17, 24, 5, BLACK, self.down_player_spritesheet, False)
         self.down_frames[4] = self.get_image(4, 17, 24, 5, BLACK, self.down_player_spritesheet, False)
         self.down_frames[5] = self.get_image(5, 17, 24, 5, BLACK, self.down_player_spritesheet, False)
-        #
+        #crosshair image
         self.crosshair_img = pg.image.load(path.join(img_folder, CROSSHAIR_IMG)).convert_alpha()
+        #gun images
         self.gun_images = {}
         self.gun_images['pi'] = pg.transform.rotozoom(pg.image.load(path.join(img_folder, 'pistol.png')).convert_alpha(), 0, 1.5)
         self.gun_images['sh'] = pg.transform.rotozoom(pg.image.load(path.join(img_folder, 'shotgun.png')).convert_alpha(), 0, 1.2)
+        self.gun_images['sn'] = pg.transform.rotozoom(pg.image.load(path.join(img_folder, 'sniper.png')).convert_alpha(), 0, 1.5)
+        self.gun_images['uzi'] = pg.transform.rotozoom(pg.image.load(path.join(img_folder, 'uzi.png')).convert_alpha(), 0, 1.5)
+        #bullet images
         self.bullet_images = {}
         self.bullet_images["pi"] = pg.transform.rotozoom(pg.image.load(path.join(img_folder, "pistol_bullet.png")).convert_alpha(), 0 , 1)
         self.bullet_images["sh"] = pg.transform.rotozoom(pg.image.load(path.join(img_folder, "shotgun_bullet.png")).convert_alpha(), 0 , 0.2)
+        self.bullet_images["sn"] = pg.transform.rotozoom(pg.image.load(path.join(img_folder, "sniper_bullet.png")).convert_alpha(), 0 , 0.55)
+        self.bullet_images["uzi"] = pg.transform.rotozoom(pg.image.load(path.join(img_folder, "pistol_bullet.png")).convert_alpha(), 0 , 0.55)
+        #mob images
         self.mob_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, MOB_IMG)).convert_alpha(), 0 , 5)
+        #
         self.heart_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, HEART_IMG)).convert_alpha(), 0 , 1.3)
         self.half_heart_img = pg.transform.rotozoom(pg.image.load(path.join(img_folder, HALF_HEART_IMG)).convert_alpha(), 0 , 1.3)
         self.gun_flashes = []
@@ -149,7 +159,7 @@ class Game:
             self.item_images[item] = pg.transform.rotozoom(pg.image.load(path.join(img_folder, ITEM_IMAGES[item])).convert_alpha(), 0, 2)
          # Sound loading
         pg.mixer.music.load(path.join(music_folder, BG_MUSIC))
-        pg.mixer.music.set_volume(10)
+        pg.mixer.music.set_volume(2)
         self.effects_sounds = {}
         for type in EFFECTS_SOUNDS:
             self.effects_sounds[type] = pg.mixer.Sound(path.join(snd_folder, EFFECTS_SOUNDS[type]))
@@ -176,7 +186,7 @@ class Game:
 
 
 
-    def get_image(self, frame, width, height, scale, colour, sheet, flipped):
+    def get_image(self, frame, width, height, scale, colour, sheet, flipped): #adjusts the player images before animation
         scale = 4
         image = pg.Surface((width, height)).convert_alpha()
         image.blit(sheet, (0, 0), ((frame * width), 0, width, height))
@@ -195,7 +205,8 @@ class Game:
         self.mob_bullets = pg.sprite.Group()
         self.items = pg.sprite.Group()
         self.mobs = pg.sprite.Group()
-        self.map = TiledMap(path.join(self.map_folder, 'map1.tmx'))
+        self.mob_guns = pg.sprite.Group()
+        self.map = TiledMap(path.join(self.map_folder, 'actual_map.tmx'))
         self.map_img = self.map.make_map()
         self.map_rect = self.map_img.get_rect()
         for tile_object in self.map.tmxdata.objects:
@@ -205,10 +216,13 @@ class Game:
                 self.player = Player(self, obj_center.x, obj_center.y, "player")
                 self.gun = Gun(self, obj_center.x, obj_center.y)
             if tile_object.name == "mob":
-                self.mob = Mob(self, obj_center.x, obj_center.y)
+                i = randint(0, 5)
+                self.mob = Mob(self, obj_center.x, obj_center.y, MOB_WEAPON[i], self.mob_counter)
+                self.mob_gun = Mob_Gun(self,obj_center.x, obj_center.y, MOB_WEAPON[i], self.mob_counter)
+                self.mob_counter += 1
             if tile_object.name == "wall":
                 Obstacle(self, tile_object.x, tile_object.y, tile_object.width, tile_object.height)
-            if tile_object.name in ['health', 'shotgun', 'pistol']:
+            if tile_object.name in ['health', 'shotgun', 'pistol', 'sniper', 'uzi']:
                 Item(self,obj_center, tile_object.name)
         self.camera = Camera(self.map.width, self.map.height)
         self.draw_debug = False
@@ -261,7 +275,7 @@ class Game:
                     hit.kill()
                     self.player.add_health(HEALTH_PACK_AMOUNT)
                     self.effects_sounds['health_up'].play()
-                if hit.type in ["shotgun", "pistol"]:
+                if hit.type in ["shotgun", "pistol", "sniper", "uzi"]:
                     now1 = pg.time.get_ticks()
                     if now1 - self.player.last_hit >= PICKUP_DELAY:
                         self.player.last_hit = now1
@@ -292,15 +306,13 @@ class Game:
                 self.player.hit()
                 if self.player.lives <= 0:
                     self.playing = False
+                hit.kill()
          # player_bullets hit mobs
         hits = pg.sprite.groupcollide(self.mobs, self.player_bullets, False, True)
         for hit in hits:
             hit.health -= WEAPONS[self.player.weapon]['damage'] * len(hits[hit])
             hit.vel = vec(0,0)
         
-
-        
-
     def draw_grid(self):
         for x in range(0, WIDTH, TILESIZE):
             pg.draw.line(self.screen, LIGHTGREY, (x, 0), (x, HEIGHT))
@@ -309,7 +321,7 @@ class Game:
 
     def draw_lives(self, surf, x, y, lives):
             for i in range(lives):
-                if i % 2 == 0:
+                if i % 2 == 0: #checks which heart image it is first half or full half
                     img = self.half_heart_img
                     img_rect = img.get_rect()
                     img_rect.x = x + 25 * i
@@ -321,7 +333,8 @@ class Game:
                     img_rect.x = x + 25 * (i-1)
                     img_rect.y = y
                     surf.blit(img, img_rect)
-    def draw_menu(self, surf, x, y):
+
+    def draw_menu(self, surf, x, y): #draws thepause menu on screen
         self.resume_button = Button(x, y - 150, self.resume_img, 1)
         self.resume_button.draw(self.screen)
         if self.menu == True:
@@ -337,10 +350,10 @@ class Game:
         self.quit_button.draw(self.screen)
         if self.menu == True:
             if self.quit_button.draw(self.screen):
-                pg.quit()
+                pg.quit() #ends game
                 sys.exit() 
     
-    def draw_options(self, surf, x, y):
+    def draw_options(self, surf, x, y): #draws options menu
         offset = 200
         if self.options == True and self.menu == False:
             self.video_button = Button(x + offset, y - 150, self.video_img, 1)
@@ -383,7 +396,7 @@ class Game:
             text_rect.center = (x, y)
         self.screen.blit(text_surface, text_rect)
 
-    def draw_crosshair(self):
+    def draw_crosshair(self): #replaces cursor with crosshair image
         pg.mouse.set_visible(False)
         self.rect = self.crosshair_img.get_rect()
         #print(self.rect)
@@ -426,6 +439,10 @@ class Game:
     def events(self):
         # catch all events here
         for event in pg.event.get():
+            if event.type == pg.MOUSEBUTTONDOWN:
+                self.auto = True
+            if event.type == pg.MOUSEBUTTONUP:  
+                self.auto = False
             if event.type == pg.QUIT:
                 self.quit()
             if event.type == pg.KEYDOWN:
@@ -442,7 +459,7 @@ class Game:
     def show_start_screen(self):
         pass
 
-    def show_go_screen(self):
+    def show_go_screen(self): #game over screen
         self.screen.fill(BLACK)
         self.draw_text("GAME OVER", "freesansbold.ttf", 100, RED,
                        WIDTH / 2, HEIGHT / 2, align="center")
@@ -471,6 +488,3 @@ while True:
     g.new()
     g.run()
     g.show_go_screen()
-
-
-
