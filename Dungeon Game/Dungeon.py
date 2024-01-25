@@ -8,7 +8,7 @@ from tilemap import *
 from button import *
 import pytmx
 from random import random
-I_FRAMES
+
 # HUD functions
 def draw_player_health(surf, x, y, pct): #draws the players health above them
     if pct < 0:
