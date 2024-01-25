@@ -14,7 +14,7 @@ Mobs = {} #hash table to store stats of mobs
 for x in range(100):
     Mobs[x] = {"pos": (0, 0),
                 "angle": 0}
-I_FRAMES
+
 def collide_with_walls(sprite, group, dir): 
     if dir == 'x': #prevents phasing on x axis
         hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
