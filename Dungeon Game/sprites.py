@@ -10,13 +10,13 @@ from random import uniform, choice, randint, random
 import pytweening as tween
 from itertools import chain
 
-Mobs = {}
+Mobs = {} #hash table to store stats of mobs
 for x in range(100):
     Mobs[x] = {"pos": (0, 0),
                 "angle": 0}
 
-def collide_with_walls(sprite, group, dir):
-    if dir == 'x':
+def collide_with_walls(sprite, group, dir): 
+    if dir == 'x': #prevents phasing on x axis
         hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
         if hits:
             if hits[0].rect.centerx > sprite.hit_rect.centerx:
@@ -25,7 +25,7 @@ def collide_with_walls(sprite, group, dir):
                 sprite.pos.x = hits[0].rect.right + sprite.hit_rect.width / 2
             sprite.vel.x = 0
             sprite.hit_rect.centerx = sprite.pos.x
-    if dir == 'y':
+    if dir == 'y':  #prevents phasing on y axis
         hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
         if hits:
             if hits[0].rect.centery > sprite.hit_rect.centery:
