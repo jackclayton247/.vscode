@@ -212,15 +212,15 @@ class Game:
         for tile_object in self.map.tmxdata.objects:
             obj_center = vec(tile_object.x + tile_object.width / 2,
                              tile_object.y + tile_object.height / 2)
-            if tile_object.name == "player":
+            if tile_object.name == "player": #spawns player
                 self.player = Player(self, obj_center.x, obj_center.y, "player")
                 self.gun = Gun(self, obj_center.x, obj_center.y)
-            if tile_object.name == "mob":
+            if tile_object.name == "mob": #spawns mob
                 i = randint(0, 5)
                 self.mob = Mob(self, obj_center.x, obj_center.y, MOB_WEAPON[i], self.mob_counter)
                 self.mob_gun = Mob_Gun(self,obj_center.x, obj_center.y, MOB_WEAPON[i], self.mob_counter)
                 self.mob_counter += 1
-            if tile_object.name == "wall":
+            if tile_object.name == "wall": #spawns wall
                 Obstacle(self, tile_object.x, tile_object.y, tile_object.width, tile_object.height)
             if tile_object.name in ['health', 'shotgun', 'pistol', 'sniper', 'uzi']:
                 Item(self,obj_center, tile_object.name)
