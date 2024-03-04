@@ -410,25 +410,25 @@ class Gun(pg.sprite.Sprite): #weapon image
             snd = choice(self.game.weapon_sounds[self.game.player.weapon])
             if snd.get_num_channels() > 2:
                 snd.stop()
-            snd.play()
+            snd.play() #playes the gunshot noise
             self.last_shot = now
             dir = vec(1, 0).rotate(-self.rot)
             pos = self.pos + BARREL_OFFSET.rotate(-self.rot)
             for i in range(1,WEAPONS[self.game.player.weapon]["bullet_count"] + 1, 1):
                 num_bullets = WEAPONS[self.game.player.weapon]["bullet_count"]
                 mid_bullet = ((num_bullets+ 1) / 2)
-                if i < mid_bullet:
+                if i < mid_bullet: #spreads the bullets with an angle of 10° inbetween each bullet
                     self.spread = (-10) * i 
                 if i == mid_bullet:
                     self.spread = 0
-                if i > mid_bullet and i < num_bullets + 1:
+                if i > mid_bullet and i < num_bullets + 1:#spreads the bullets with an angle of 10° inbetween each bullet
                     self.spread = 10 * (i - mid_bullet)
-                Player_Bullet(self.game, pos, dir, self.spread)
+                Player_Bullet(self.game, pos, dir, self.spread) #spawns bullet
             self.vel = vec(-WEAPONS[self.game.player.weapon]["kickback"], 0).rotate(-self.rot)
             magnitude_flash = math.sqrt(self.game.gun.x_change_mouse_gun **2 + self.game.gun.y_change_mouse_gun **2)
             MuzzleFlash(self.game, [self.game.gun.x_change_mouse_gun / magnitude_flash * 40, self.game.gun.y_change_mouse_gun / magnitude_flash * 40] + self.game.gun.pos)
-            self.shots_fired = self.shots_fired + 1
-            self.time_of_last_shot = pg.time.get_ticks()
+            self.shots_fired = self.shots_fired + 1 #increments how many shots have been fired since las reload
+            self.time_of_last_shot = pg.time.get_ticks() #records last time a shot was fired
 
     def reload(self):
         now = pg.time.get_ticks()
