@@ -318,7 +318,7 @@ class Gun(pg.sprite.Sprite): #weapon image
 
     def gun_rotation(self): #roates the gun sprite to point the cursor
         if self.scroll_lim_x == True and self.scroll_lim_y == True:
-            if self.game.player.pos.x < WIDTH / 2 and self.game.player.pos.y < HEIGHT / 2:
+            if self.game.player.pos.x < WIDTH / 2 and self.game.player.pos.y < HEIGHT / 2: #changes the way the postion of the mouse is found based on where the player is on the map
                 self.mouse_coords = pg.mouse.get_pos()
             elif self.width - WIDTH / 2 < self.game.player.pos.x and self.game.player.pos.y < HEIGHT / 2: #top right
                 self.mouse_coords = vec((self.width - WIDTH),0) + pg.mouse.get_pos()
@@ -338,13 +338,13 @@ class Gun(pg.sprite.Sprite): #weapon image
                 self.mouse_coords = vec((self.game.player.pos.x - WIDTH / 2, self.height - HEIGHT)) + pg.mouse.get_pos()
         else:
             self.mouse_coords = self.pos - PLAYER_CENTER + pg.mouse.get_pos()
-        self.x_change_mouse_gun = (self.mouse_coords[0] - self.hitbox_rect.centerx)
-        self.y_change_mouse_gun = (self.mouse_coords[1] - self.hitbox_rect.centery)
-        self.angle = math.degrees(math.atan2(self.y_change_mouse_gun, self.x_change_mouse_gun))
-        self.image = pg.transform.rotate(self.base_gun_image, -self.angle)
+        self.x_change_mouse_gun = (self.mouse_coords[0] - self.hitbox_rect.centerx) #base of the triangle
+        self.y_change_mouse_gun = (self.mouse_coords[1] - self.hitbox_rect.centery) #height of the triangle
+        self.angle = math.degrees(math.atan2(self.y_change_mouse_gun, self.x_change_mouse_gun)) #trigonometry (t = o/a)
+        self.image = pg.transform.rotate(self.base_gun_image, -self.angle) #transforms image
         offset_rotated = self.offset.rotate(self.angle)
         self.rect = self.image.get_rect(center = self.pos + offset_rotated)
-        if self.flipped:
+        if self.flipped: #creates a togle for when the gun is flipped 
             if -70 < self.angle < 70:
                 self.flipped = False
                 #self.pos = self.game.player.pos + HANDLE_OFFSET
